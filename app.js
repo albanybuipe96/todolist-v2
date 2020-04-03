@@ -30,16 +30,43 @@ const Item = mongoose.model('Item', itemSchema)
 const buy = new Item({ name: 'Buy food' })
 const cook = new Item({ name: 'Cook food' })
 const eat = new Item({ name: 'Eat food' })
+const defaults = [buy, cook, eat]
 
 // Item.insertMany([buy, cook, eat], (err) => {
 //     err ? console.error(err) : console.log('Items saved successfully.')
 // })
+
+const listSchema = new mongoose.Schema({
+    name: {
+        type: String
+    },
+    items: [itemSchema]
+})
+
+const List = mongoose.model('List', listSchema)
 
 app.get('/', (req, res) => {
 
     Item.find((err, items) => {
         if (!err) {
             res.render('list', { title: 'Today', items })
+        }
+    })
+})
+
+app.get('/:route', (req, res) => {
+    const route = req.params.route
+    List.findOne({ name: route }, (err, match) => {
+        if (!err) {
+            if (!match) {
+                // Create a new list
+                const list = new List({ name: route, items: [] })
+                list.save()
+                res.redirect('/' + route)
+            } else {
+                // Show existing list
+                res.render('list', { title: route, items: match.items })
+            }
         }
     })
 })
@@ -58,9 +85,22 @@ app.get('/', (req, res) => {
 
 app.post('/', (req, res) => {
     const name = req.body.item
+    const listName = req.body.list
     const item = new Item({ name })
-    item.save()
-    res.redirect('/')
+
+    if ( listName === 'Today') {
+        item.save()
+        res.redirect('/')
+    } else {
+        console.log(listName)
+        List.findOne({ name: listName }, (err, match) => {
+            if (!err) {
+                match.items.push(item)
+                match.save()
+                res.redirect('/' + listName)
+            }
+        })
+    }
 })
 
 app.post('/delete', (req, res) => {
@@ -72,21 +112,12 @@ app.post('/delete', (req, res) => {
         }
     })
      res.redirect('/')
-    // console.log(id)
 })
 
-app.get('/work', (req, res) => {
-    const title = 'Work List'
-    res.render('list', { title, items: list })
-})
-
-app.post('/work', (req, res) => {
-    const item = req.body.item
-    if (item.length != 0) {
-        list.push(item)
-    }
-     res.redirect('/work')
-})
+// app.get('/work', (req, res) => {
+//     const title = 'Work List'
+//     res.render('list', { title, items: list })
+// })
 
 app.get('/about', (req, res) => {
     res.render('about')
